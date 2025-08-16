@@ -1,0 +1,5 @@
+https://t.me/example_chat1 | 1,200 members | 85 online (7.08%)
+https://t.me/example_chat2 | 2,500 members | 125 online (5.00%)
+https://t.me/example_chat3 | 800 members | 95 online (11.88%)
+https://t.me/example_chat4 | 3,100 members | 62 online (2.00%)
+https://t.me/example_chat5 | 650 members | 78 online (12.00%)
