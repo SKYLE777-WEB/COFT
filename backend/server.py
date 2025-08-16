@@ -82,8 +82,8 @@ SCRIPT_CONFIGS = {
         "can_run_background": True
     },
     "main_automation": {
-        "name": "Main Automation",
-        "description": "Главный координирующий скрипт",
+        "name": "Main Automation (опционально)",
+        "description": "Главный координирующий скрипт (требует Windows .exe файлы)",
         "script_path": "/app/УПравление/ГЛАВА.py",
         "work_directory": "/app/УПравление", 
         "can_run_background": False
