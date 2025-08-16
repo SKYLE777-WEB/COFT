@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Конструктор блоков с текстом и кнопками</title>
+<style>
+  body {
+    background: #222;
+    color: #eee;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    height: 100vh;
+    overflow: hidden;
+  }
+  #toolbar {
+    background: #111;
+    padding: 10px 20px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    user-select: none;
+  }
+  #toolbar button {
+    background: #0a84ff;
+    border: none;
+    padding: 8px 14px;
+    color: white;
+    font-weight: bold;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  #canvas {
+    position: relative;
+    width: 100vw;
+    height: calc(100vh - 50px);
+    overflow: auto;
+  }
+  .block {
+    position: absolute;
+    background: #333;
+    border-radius: 6px;
+    border: 2px solid #555;
+    padding: 12px;
+    min-width: 220px;
+    box-sizing: border-box;
+    user-select: none;
+  }
+  .block input.title-edit {
+    width: 100%;
+    font-weight: bold;
+    font-size: 1.1rem;
+    background: #444;
+    border: none;
+    color: #eee;
+    outline: none;
+    padding: 6px 8px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    box-sizing: border-box;
+  }
+  .block .title {
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+  }
+  .block textarea.text-content {
+    width: 100%;
+    /* Удаляем фиксированную высоту и разрешение на изменение размера */
+    height: auto;
+    resize: none;
+    background: #444;
+    border: none;
+    color: #eee;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 1rem;
+    box-sizing: border-box;
+    margin-bottom: 8px;
+    font-family: Arial, sans-serif;
+    overflow-y: hidden; /* Скрываем вертикальную полосу прокрутки */
+    min-height: 80px; /* Минимальная высота */
+  }
+  .button-list {
+    margin-top: 6px;
+  }
+  .button-list button {
+    display: block;
+    width: 100%;
+    margin-bottom: 6px;
+    background: #555;
+    color: #eee;
+    border: none;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.9rem;
+    position: relative;
+    padding-right: 25px; /* Дополнительный отступ для крестика */
+  }
+  .button-list button:hover {
+    background: #666;
+  }
+  .add-button {
+    margin-top: 8px;
+    background: #0a84ff;
+    border: none;
+    padding: 6px;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+    font-weight: bold;
+  }
+  /* Порты для кнопок */
+  .port {
+    width: 12px;
+    height: 12px;
+    background: #0a84ff;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    right: -6px;
+    transform: translateY(-50%);
+    cursor: pointer;
+  }
+  /* Начальный блок - сверху и слева */
+  #block-0 {
+    top: 40px;
+    left: 40px;
+    border-color: #0a84ff;
+  }
+  /* Кнопка удаления блока */
+  .delete-button {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    color: red;
+    font-weight: bold;
+    font-size: 18px;
+    cursor: pointer;
+    user-select: none;
+  }
+  /* Кнопка удаления кнопки */
+  .delete-button-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: red;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    display: none; /* Скрываем по умолчанию */
+  }
+  .button-list button:hover .delete-button-btn {
+      display: block; /* Показываем при наведении на кнопку */
+  }
+  svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    overflow: visible;
+  }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <button id="saveJsonBtn">💾 Сохранить JSON</button>
+  <button id="loadJsonBtn">📂 Загрузить JSON</button>
+  <input type="file" id="fileInput" accept=".json" style="display:none" />
+  <button id="newBlockBtn">➕ Новый пустой блок</button>
+</div>
+
+<div id="canvas">
+  <svg id="svg" width="100%" height="100%"></svg>
+</div>
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const svg = document.getElementById('svg');
+  const saveJsonBtn = document.getElementById('saveJsonBtn');
+  const loadJsonBtn = document.getElementById('loadJsonBtn');
+  const fileInput = document.getElementById('fileInput');
+  const newBlockBtn = document.getElementById('newBlockBtn');
+
+  let blocks = {};
+  let nextBlockId = 0;
+
+  function addButton(blockId) {
+    const block = blocks[blockId];
+    let buttonText = prompt('Введите название кнопки:', '');
+    if (buttonText === null) return;
+    buttonText = buttonText.trim();
+    if (!buttonText) buttonText = 'Кнопка ' + (block.buttons.length + 1);
+
+    const btnId = 'btn-' + blockId + '-' + block.buttons.length;
+    block.buttons.push({
+      id: btnId,
+      text: buttonText,
+      targetBlockId: null
+    });
+    renderBlock(blockId);
+    renderAll();
+  }
+  
+  function deleteButtonFromBlock(blockId, buttonIndex) {
+    const block = blocks[blockId];
+    if (!block || buttonIndex < 0 || buttonIndex >= block.buttons.length) {
+        return;
+    }
+    
+    const removedButton = block.buttons.splice(buttonIndex, 1)[0];
+    
+    // Если у удаленной кнопки был связанный блок, его тоже нужно удалить
+    if (removedButton.targetBlockId !== null) {
+        deleteBlock(removedButton.targetBlockId);
+    }
+    
+    renderBlock(blockId);
+    renderAll();
+}
+
+  function setupAddButton(blockDiv, blockId) {
+    const addBtn = blockDiv.querySelector('.add-button');
+    if (!addBtn) return;
+    addBtn.onclick = e => {
+      e.preventDefault();
+      addButton(blockId);
+    };
+  }
+
+  function resizeTextarea(textarea) {
+    textarea.style.height = 'auto'; // Сбрасываем высоту, чтобы она автоматически подстроилась
+    textarea.style.height = textarea.scrollHeight + 'px'; // Устанавливаем высоту, равную содержимому
+    renderAll();
+  }
+
+  function createBlock(id, title = 'Новый блок', top = 100, left = 300) {
+    if (blocks[id]) {
+      alert('Блок с таким ID уже существует!');
+      return;
+    }
+    blocks[id] = {
+      id,
+      title,
+      top,
+      left,
+      text: '',
+      buttons: []
+    };
+
+    const blockDiv = document.createElement('div');
+    blockDiv.classList.add('block');
+    blockDiv.id = 'block-' + id;
+    blockDiv.style.top = top + 'px';
+    blockDiv.style.left = left + 'px';
+    blockDiv.dataset.id = id;
+
+    // Кнопка удаления, если не начальный блок
+    if (id !== 0) {
+      const delBtn = document.createElement('div');
+      delBtn.textContent = '×';
+      delBtn.classList.add('delete-button');
+      delBtn.title = 'Удалить блок';
+      blockDiv.appendChild(delBtn);
+
+      delBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        deleteBlock(id);
+      });
+    }
+
+    if (id === 0) {
+      const input = document.createElement('input');
+      input.classList.add('title-edit');
+      input.type = 'text';
+      input.value = title;
+      input.addEventListener('input', e => {
+        blocks[id].title = e.target.value;
+      });
+      blockDiv.appendChild(input);
+
+      const textarea = document.createElement('textarea');
+      textarea.classList.add('text-content');
+      textarea.placeholder = 'Текст начального блока...';
+      textarea.value = blocks[id].text;
+      textarea.addEventListener('input', e => {
+        blocks[id].text = e.target.value;
+        resizeTextarea(e.target);
+      });
+      blockDiv.appendChild(textarea);
+      // При создании блока сразу подгоняем размер, если есть текст
+      if (blocks[id].text) {
+        resizeTextarea(textarea);
+      }
+
+    } else {
+      const titleDiv = document.createElement('div');
+      titleDiv.classList.add('title');
+      titleDiv.textContent = title;
+      blockDiv.appendChild(titleDiv);
+
+      const textarea = document.createElement('textarea');
+      textarea.classList.add('text-content');
+      textarea.placeholder = 'Текст блока...';
+      textarea.value = blocks[id].text;
+      textarea.addEventListener('input', e => {
+        blocks[id].text = e.target.value;
+        resizeTextarea(e.target);
+      });
+      blockDiv.appendChild(textarea);
+      // При создании блока сразу подгоняем размер, если есть текст
+      if (blocks[id].text) {
+        resizeTextarea(textarea);
+      }
+    }
+
+    const buttonList = document.createElement('div');
+    buttonList.classList.add('button-list');
+    buttonList.id = 'buttons-' + id;
+    blockDiv.appendChild(buttonList);
+
+    const addBtn = document.createElement('button');
+    addBtn.classList.add('add-button');
+    addBtn.textContent = '+ Добавить кнопку';
+    addBtn.dataset.block = id;
+    blockDiv.appendChild(addBtn);
+
+    canvas.appendChild(blockDiv);
+
+    setupAddButton(blockDiv, id);
+
+    renderBlock(id);
+    renderAll();
+  }
+
+  function deleteBlock(id) {
+    if (id === 0) {
+      alert('Начальный блок нельзя удалить!');
+      return;
+    }
+    delete blocks[id];
+    const blockDiv = document.getElementById('block-' + id);
+    if (blockDiv) blockDiv.remove();
+
+    // Удаляем ссылки на этот блок в кнопках других блоков
+    for (const bid in blocks) {
+      const block = blocks[bid];
+      block.buttons.forEach(btn => {
+        if (btn.targetBlockId === id) {
+          btn.targetBlockId = null;
+        }
+      });
+    }
+    renderAll();
+  }
+
+  function updateBlockTitle(id, newTitle) {
+    blocks[id].title = newTitle;
+    const blockDiv = document.getElementById('block-' + id);
+    if (id !== 0) {
+      const titleDiv = blockDiv.querySelector('.title');
+      if (titleDiv) titleDiv.textContent = newTitle;
+    } else {
+      const input = blockDiv.querySelector('input.title-edit');
+      if (input) input.value = newTitle;
+    }
+  }
+
+  function renderBlock(id) {
+    const block = blocks[id];
+    const blockDiv = document.getElementById('block-' + id);
+    if (!blockDiv) return;
+    const buttonList = document.getElementById('buttons-' + id);
+    buttonList.innerHTML = '';
+
+    block.buttons.forEach((btn, idx) => {
+      const btnEl = document.createElement('button');
+      btnEl.textContent = btn.text || 'Кнопка ' + (idx + 1);
+      btnEl.dataset.btnId = btn.id;
+      btnEl.style.position = 'relative'; // Убедимся, что position: relative для правильного позиционирования крестика
+
+      // Добавляем крестик для удаления
+      const deleteButton = document.createElement('span');
+      deleteButton.textContent = '×';
+      deleteButton.classList.add('delete-button-btn');
+      deleteButton.title = 'Удалить эту кнопку';
+      btnEl.appendChild(deleteButton);
+      
+      // Обработчик для удаления кнопки
+      deleteButton.addEventListener('click', e => {
+        e.stopPropagation();
+        deleteButtonFromBlock(id, idx);
+      });
+
+      let port = btnEl.querySelector('.port');
+      if (!port) {
+        port = document.createElement('div');
+        port.classList.add('port');
+        port.style.position = 'absolute';
+        port.style.right = '-16px';
+        port.style.top = '50%';
+        port.style.transform = 'translateY(-50%)';
+        port.title = 'Нажмите для создания/связи блока';
+        btnEl.appendChild(port);
+
+        port.addEventListener('click', e => {
+          e.stopPropagation();
+          if (btn.targetBlockId === null) {
+            const rect = blockDiv.getBoundingClientRect();
+            const newId = nextBlockId++;
+            btn.targetBlockId = newId;
+            createBlock(newId, btn.text.trim() || 'Новый блок', rect.top + window.scrollY, rect.left + 280 + window.scrollX);
+            renderAll();
+          }
+        });
+      }
+
+      btnEl.onclick = (e) => {
+        // Проверяем, не нажали ли на кнопку удаления
+        if (e.target.classList.contains('delete-button-btn')) {
+          return;
+        }
+        const newText = prompt('Название кнопки:', btn.text);
+        if (newText !== null) {
+          btn.text = newText.trim() || 'Кнопка ' + (idx + 1);
+          if (btn.targetBlockId !== null && blocks[btn.targetBlockId]) {
+            updateBlockTitle(btn.targetBlockId, btn.text);
+          }
+          renderBlock(id);
+          renderAll();
+        }
+      };
+
+      buttonList.appendChild(btnEl);
+    });
+  }
+
+  function renderAll() {
+    svg.innerHTML = '';
+    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    defs.innerHTML = `
+      <marker id="arrowhead" markerWidth="10" markerHeight="7"
+        refX="10" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#0a84ff" />
+      </marker>
+    `;
+    svg.appendChild(defs);
+
+    for (const id in blocks) {
+      const block = blocks[id];
+      const blockDiv = document.getElementById('block-' + id);
+      if (!blockDiv) continue;
+
+      block.top = parseInt(blockDiv.style.top, 10);
+      block.left = parseInt(blockDiv.style.left, 10);
+
+      block.buttons.forEach(btn => {
+        if (btn.targetBlockId !== null) {
+          const targetBlockDiv = document.getElementById('block-' + btn.targetBlockId);
+          if (!targetBlockDiv) return;
+
+          const btnEl = [...blockDiv.querySelectorAll('button')].find(b => b.dataset.btnId === btn.id);
+          if (!btnEl) return;
+
+          const portBtn = btnEl.querySelector('.port');
+          if (!portBtn) return;
+
+          const startRect = portBtn.getBoundingClientRect();
+          const endBlockRect = targetBlockDiv.getBoundingClientRect();
+          const svgRect = svg.getBoundingClientRect();
+
+          const startX = startRect.right - svgRect.left + window.scrollX;
+          const startY = startRect.top + startRect.height / 2 - svgRect.top + window.scrollY;
+
+          const endX = endBlockRect.left - svgRect.left + window.scrollX;
+          const endY = endBlockRect.top + endBlockRect.height / 2 - svgRect.top + window.scrollY;
+
+          const dx = endX - startX;
+          const dy = endY - startY;
+          const controlX1 = startX + dx / 2;
+          const controlY1 = startY;
+          const controlX2 = startX + dx / 2;
+          const controlY2 = endY;
+
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("d", `M${startX},${startY} C${controlX1},${controlY1} ${controlX2},${controlY2} ${endX},${endY}`);
+          path.setAttribute("stroke", "#0a84ff");
+          path.setAttribute("stroke-width", "3");
+          path.setAttribute("fill", "none");
+          path.setAttribute("marker-end", "url(#arrowhead)");
+
+          svg.appendChild(path);
+        }
+      });
+    }
+  }
+
+  saveJsonBtn.addEventListener('click', () => {
+    const dataStr = JSON.stringify(blocks, null, 2);
+    const blob = new Blob([dataStr], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'blocks.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  loadJsonBtn.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  fileInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = JSON.parse(e.target.result);
+        loadBlocksFromJson(data);
+      } catch (err) {
+        alert('Ошибка загрузки JSON: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  function loadBlocksFromJson(data) {
+    for (const id in blocks) {
+      const blockDiv = document.getElementById('block-' + id);
+      if (blockDiv) blockDiv.remove();
+    }
+    blocks = {};
+    nextBlockId = 0;
+
+    for (const idStr in data) {
+      const id = parseInt(idStr);
+      if (id >= nextBlockId) nextBlockId = id + 1;
+      const blockData = data[id];
+      blocks[id] = {
+        id: blockData.id,
+        title: blockData.title,
+        top: blockData.top || 100,
+        left: blockData.left || 100,
+        text: blockData.text || '',
+        buttons: blockData.buttons || []
+      };
+
+      const blockDiv = document.createElement('div');
+      blockDiv.classList.add('block');
+      blockDiv.id = 'block-' + id;
+      blockDiv.style.top = blocks[id].top + 'px';
+      blockDiv.style.left = blocks[id].left + 'px';
+      blockDiv.dataset.id = id;
+
+      if (id === 0) {
+        const input = document.createElement('input');
+        input.classList.add('title-edit');
+        input.type = 'text';
+        input.value = blocks[id].title;
+        input.addEventListener('input', e => {
+          blocks[id].title = e.target.value;
+        });
+        blockDiv.appendChild(input);
+
+        const textarea = document.createElement('textarea');
+        textarea.classList.add('text-content');
+        textarea.placeholder = 'Текст начального блока...';
+        textarea.value = blocks[id].text;
+        textarea.addEventListener('input', e => {
+          blocks[id].text = e.target.value;
+          resizeTextarea(e.target);
+        });
+        blockDiv.appendChild(textarea);
+        if (blocks[id].text) {
+          resizeTextarea(textarea);
+        }
+
+      } else {
+        const titleDiv = document.createElement('div');
+        titleDiv.classList.add('title');
+        titleDiv.textContent = blocks[id].title;
+        blockDiv.appendChild(titleDiv);
+
+        const textarea = document.createElement('textarea');
+        textarea.classList.add('text-content');
+        textarea.placeholder = 'Текст блока...';
+        textarea.value = blocks[id].text;
+        textarea.addEventListener('input', e => {
+          blocks[id].text = e.target.value;
+          resizeTextarea(e.target);
+        });
+        blockDiv.appendChild(textarea);
+        if (blocks[id].text) {
+          resizeTextarea(textarea);
+        }
+
+        // Добавляем кнопку удаления при загрузке из JSON
+        const delBtn = document.createElement('div');
+        delBtn.textContent = '×';
+        delBtn.classList.add('delete-button');
+        delBtn.title = 'Удалить блок';
+        blockDiv.appendChild(delBtn);
+
+        delBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          deleteBlock(id);
+        });
+      }
+
+      const buttonList = document.createElement('div');
+      buttonList.classList.add('button-list');
+      buttonList.id = 'buttons-' + id;
+      blockDiv.appendChild(buttonList);
+
+      const addBtn = document.createElement('button');
+      addBtn.classList.add('add-button');
+      addBtn.textContent = '+ Добавить кнопку';
+      addBtn.dataset.block = id;
+      blockDiv.appendChild(addBtn);
+
+      canvas.appendChild(blockDiv);
+
+      setupAddButton(blockDiv, id);
+
+      renderBlock(id);
+    }
+    renderAll();
+  }
+
+  // Перемещение блоков
+  let dragData = null;
+  canvas.addEventListener('mousedown', e => {
+    const target = e.target.closest('.block');
+    if (!target) return;
+    if (
+      e.target.classList.contains('add-button') ||
+      e.target.classList.contains('delete-button') ||
+      e.target.classList.contains('delete-button-btn') || // Игнорируем новую кнопку удаления
+      e.target.tagName === 'INPUT' ||
+      e.target.tagName === 'TEXTAREA' ||
+      e.target.tagName === 'BUTTON'
+    ) return;
+
+    dragData = {
+      blockId: target.dataset.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      origLeft: parseInt(target.style.left, 10),
+      origTop: parseInt(target.style.top, 10)
+    };
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!dragData) return;
+    const dx = e.clientX - dragData.startX;
+    const dy = e.clientY - dragData.startY;
+
+    const blockDiv = document.getElementById('block-' + dragData.blockId);
+    blockDiv.style.left = dragData.origLeft + dx + 'px';
+    blockDiv.style.top = dragData.origTop + dy + 'px';
+
+    renderAll();
+  });
+
+  window.addEventListener('mouseup', e => {
+    dragData = null;
+  });
+
+  // Обработчик кнопки "Новый пустой блок"
+  newBlockBtn.addEventListener('click', () => {
+    let baseBlock = blocks[0];
+    if (!baseBlock) {
+      baseBlock = { top: 40, left: 40 };
+    }
+    const newLeft = baseBlock.left + 280;
+    const newTop = baseBlock.top + 20;
+
+    const newId = nextBlockId++;
+    createBlock(newId, 'Новый блок', newTop, newLeft);
+  });
+
+  // Старт с чистого листа — очистить все и создать начальный блок
+  function start() {
+    for (const id in blocks) {
+      const blockDiv = document.getElementById('block-' + id);
+      if (blockDiv) blockDiv.remove();
+    }
+    blocks = {};
+    nextBlockId = 1; // следующий после 0
+
+    createBlock(0, 'Начальный блок', 40, 40);
+    renderBlock(0);
+    renderAll();
+  }
+
+  start();
+
+</script>
+
+</body>
+</html>

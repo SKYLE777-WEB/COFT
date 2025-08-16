@@ -1,0 +1,11 @@
+C:\Софт\Telegram_checker V1.0\Telegram Checker\obj\Debug\Telegram Checker.csproj.AssemblyReference.cache
+C:\Софт\Telegram_checker V1.0\Telegram Checker\obj\Debug\Telegram Checker.FxResources.System.Buffers.SR.resources
+C:\Софт\Telegram_checker V1.0\Telegram Checker\obj\Debug\Telegram Checker.FxResources.System.Memory.SR.resources
+C:\Софт\Telegram_checker V1.0\Telegram Checker\obj\Debug\Telegram Checker.FxResources.System.Numerics.Vectors.SR.resources
+C:\Софт\Telegram_checker V1.0\Telegram Checker\obj\Debug\Telegram Checker.LanguageIdentification.Resource.resources
+C:\Софт\Telegram_checker V1.0\Telegram Checker\obj\Debug\Telegram Checker.Leaf.xNet.Resources.resources
+C:\Софт\Telegram_checker V1.0\Telegram Checker\obj\Debug\ProxyBsquad.auth.resources
+C:\Софт\Telegram_checker V1.0\Telegram Checker\obj\Debug\ProxyBsquad.Form1.resources
+C:\Софт\Telegram_checker V1.0\Telegram Checker\obj\Debug\Telegram Checker.TelegramCH.Properties.Resources.resources
+C:\Софт\Telegram_checker V1.0\Telegram Checker\obj\Debug\Telegram Checker.csproj.GenerateResource.cache
+C:\Софт\Telegram_checker V1.0\Telegram Checker\obj\Debug\Telegram Checker.csproj.CoreCompileInputs.cache
